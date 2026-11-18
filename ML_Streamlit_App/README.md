@@ -1,4 +1,4 @@
-# California Housing Streamlit App
+# House Price Prediction – Version 2
 
 An interactive web app that uses the existing California Housing Random Forest
 model to estimate a district's median house value. The included `model.joblib`
@@ -38,22 +38,24 @@ To load a different compatible sklearn model, set `MODEL_PATH` to its Joblib
 file before starting Streamlit. The replacement model must accept the same
 eight feature columns.
 
-## GitHub Actions: build and validate on push
+## Build and publish Docker images with GitHub Actions
 
-The workflow at `.github/workflows/docker-build.yml` runs on every push and
-pull request. On a GitHub-hosted Ubuntu runner, it:
+The workflow at `.github/workflows/docker-publish.yml` runs on every push and
+can also be started manually. On a GitHub-hosted Ubuntu runner, it:
 
 1. Checks out the repository and sets up Python 3.12.
 2. Installs the application dependencies and pytest.
 3. Runs the Streamlit/model tests.
-4. Builds the Docker image and checks that it exists.
-5. Starts a temporary container, checks Streamlit's health endpoint, and runs
-   a sample prediction using the bundled model.
+4. Checks that Docker Hub credentials are configured.
+5. Builds the Docker image and starts a temporary container to check the
+   Streamlit health endpoint and run a sample model prediction.
+6. Logs in to Docker Hub using GitHub Actions secrets and pushes the image.
 
-The workflow only builds and validates the image. It does not publish the image
-or deploy to a production server. Failed test or Docker steps appear in red in
-the GitHub Actions run; the container smoke-test step prints container logs if
-it fails.
+The workflow publishes `DOCKERHUB_USERNAME/house-price-ml:latest` for pushes
+to the repository's default branch. Other branch pushes also publish branch
+and commit-SHA tags. It does not deploy to a production server. Failed test,
+build, or container steps appear in red in GitHub Actions; the container
+smoke-test step prints its logs on failure.
 
 ### Put the project in a GitHub repository
 
@@ -84,20 +86,58 @@ git remote add origin https://github.com/<YOUR-USERNAME>/ML_Streamlit_App.git
 git push -u origin main
 ```
 
-Pushes to any branch start the workflow. No deployment secrets or paid
-deployment service are needed.
+### Configure Docker Hub publishing
+
+1. In Docker Hub, create a repository named `house-price-ml` under your
+   account. Choose public or private visibility.
+2. In Docker Hub account settings, create an access token named
+   `github-actions-token`. Grant only the permissions needed to pull and push
+   images (Read and Write); Delete permission is not needed by this workflow.
+3. In the GitHub project repository, open **Settings → Secrets and variables
+   → Actions** and add these **Repository secrets**:
+
+   | Secret name | Value |
+   | --- | --- |
+   | `DOCKERHUB_USERNAME` | Your Docker Hub username |
+   | `DOCKERHUB_TOKEN` | The Docker Hub access token |
+
+   Do not paste the token into source code or commit it to the repository.
+4. Commit and push the workflow and project files. A push triggers the
+   workflow; no deployment service or paid runner is required.
+
+The image is published as
+`DOCKERHUB_USERNAME/house-price-ml:latest` on the default branch. The workflow
+also pushes branch and commit-SHA tags. If secrets are missing, the workflow
+fails with an explicit message before attempting to build or publish.
 
 ### View workflow results
 
 1. Open the repository on GitHub.
 2. Select the **Actions** tab.
-3. Select **Build and validate Docker image** to see recent runs.
+3. Select **Build and publish Docker image** to see recent runs.
 4. Open a run and expand each step for logs. A green check means tests, image
-   build, and the container smoke test all passed; a red cross identifies the
-   failing step and its error output.
+   build, container smoke test, and Docker Hub push all passed; a red cross
+   identifies the failing step and its error output.
 
 You can also open a commit and select its **Checks** section to view the
 workflow status for that push.
+
+After a successful run, open Docker Hub → **Repositories** →
+`house-price-ml` and confirm the `latest` tag was updated.
+
+### Pull and run the published image
+
+After the workflow publishes the image, replace `<DOCKERHUB_USERNAME>` with
+your Docker Hub username. For a private Docker Hub repository, run `docker login`
+first and authenticate using your Docker Hub access token:
+
+```powershell
+docker pull <DOCKERHUB_USERNAME>/house-price-ml:latest
+docker run --rm -p 127.0.0.1:8501:8501 <DOCKERHUB_USERNAME>/house-price-ml:latest
+```
+
+Open [http://localhost:8501](http://localhost:8501) and verify the heading
+**House Price Prediction – Version 2**.
 
 ### Run tests locally
 
@@ -133,7 +173,7 @@ image names (`california-housing-streamlit`) consistent:
 docker tag california-housing-streamlit:latest california-housing-streamlit:previous
 
 # 2. Build the updated image. Change the version for each deployment.
-docker build --build-arg APP_VERSION=1.1.0 -t california-housing-streamlit:latest .
+docker build --build-arg APP_VERSION=2.0.0 -t california-housing-streamlit:latest .
 
 # 3. Replace the old container.
 docker stop california-housing-streamlit

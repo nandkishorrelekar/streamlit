@@ -13,7 +13,7 @@ def test_streamlit_app_loads():
     app_test = AppTest.from_file(str(PROJECT_DIR / "app.py")).run()
 
     assert not app_test.exception
-    assert app_test.title[0].value == "California Housing Price Predictor"
+    assert app_test.title[0].value == "House Price Prediction – Version 2"
 
 
 def test_included_model_predicts_one_finite_value():

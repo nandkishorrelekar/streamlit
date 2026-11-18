@@ -19,7 +19,7 @@ FEATURE_NAMES = (
     "Longitude",
 )
 DEFAULT_VALUES = (8.3, 21.0, 6.9, 1.1, 320.0, 3.2, 37.8, -122.4)
-APP_VERSION = os.environ.get("APP_VERSION", "1.1.0")
+APP_VERSION = os.environ.get("APP_VERSION", "2.0.0")
 MODEL_PATH = Path(
     os.environ.get("MODEL_PATH", str(Path(__file__).with_name("model.joblib")))
 ).expanduser()
@@ -59,11 +59,11 @@ def validate_features(values):
 
 
 st.set_page_config(
-    page_title="California Housing Predictor",
+    page_title="House Price Prediction – Version 2",
     page_icon="🏠",
     layout="centered",
 )
-st.title("California Housing Price Predictor")
+st.title("House Price Prediction – Version 2")
 st.caption("Application version: {}".format(APP_VERSION))
 st.write(
     "Enter the characteristics of a California district to estimate its "

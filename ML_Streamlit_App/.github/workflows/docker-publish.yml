@@ -1,19 +1,18 @@
-name: Build and validate Docker image
+name: Build and publish Docker image
 
 on:
   push:
-  pull_request:
   workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
-  build-and-test:
+  build-test-publish:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     env:
-      IMAGE_TAG: california-housing-streamlit:${{ github.sha }}
+      LOCAL_IMAGE: house-price-ml:ci-${{ github.sha }}
 
     steps:
       - name: Check out repository
@@ -34,16 +33,36 @@ jobs:
       - name: Run application tests
         run: python -m pytest -q
 
+      - name: Validate Docker Hub secrets
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [ -z "$DOCKERHUB_USERNAME" ] || [ -z "$DOCKERHUB_TOKEN" ]; then
+            echo "::error::Add the DOCKERHUB_USERNAME and DOCKERHUB_TOKEN repository secrets."
+            exit 1
+          fi
+
+      - name: Create Docker image tags
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKERHUB_USERNAME }}/house-price-ml
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=ref,event=branch
+            type=sha,prefix=sha-
+
       - name: Build Docker image
-        run: docker build --build-arg APP_VERSION=ci-${GITHUB_SHA::7} -t "$IMAGE_TAG" .
+        run: docker build --build-arg APP_VERSION=ci-${GITHUB_SHA::7} -t "$LOCAL_IMAGE" .
 
       - name: Verify image was built
-        run: docker image inspect "$IMAGE_TAG"
+        run: docker image inspect "$LOCAL_IMAGE"
 
       - name: Run container smoke test
         run: |
           set -euo pipefail
-          container_name="california-housing-ci"
+          container_name="house-price-ml-ci"
           cleanup() {
             result=$?
             if [ "$result" -ne 0 ]; then
@@ -56,7 +75,7 @@ jobs:
           docker run -d \
             --name "$container_name" \
             -p 127.0.0.1:8501:8501 \
-            "$IMAGE_TAG"
+            "$LOCAL_IMAGE"
 
           ready=false
           for attempt in $(seq 1 30); do
@@ -75,3 +94,20 @@ jobs:
           curl --fail --show-error http://127.0.0.1:8501/_stcore/health
           docker exec "$container_name" python -c \
             "import joblib, pandas as pd; model=joblib.load('model.joblib'); x=pd.DataFrame([[8.3,21,6.9,1.1,320,3.2,37.8,-122.4]], columns=list(model.feature_names_in_)); print('Sample prediction:', float(model.predict(x)[0]))"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Push image tags to Docker Hub
+        env:
+          DOCKERHUB_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          set -euo pipefail
+          while IFS= read -r image_tag; do
+            [ -z "$image_tag" ] && continue
+            docker tag "$LOCAL_IMAGE" "$image_tag"
+            docker push "$image_tag"
+          done <<< "$DOCKERHUB_TAGS"
