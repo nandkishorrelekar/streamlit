@@ -1,0 +1,24 @@
+artifact_path: file:C:/Users/ISE-IOT/Desktop/exp11/mlruns/1/models/m-421aa694a4304c4d89e8aa7aafeb3c08/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.skops
+    predict_fn: predict
+    python_version: 3.14.7
+  sklearn:
+    code: null
+    pickled_model: model.skops
+    serialization_format: skops
+    sklearn_version: 1.9.1
+    skops_trusted_types:
+    - sklearn.tree._tree.Tree
+mlflow_version: 3.17.2
+model_id: m-421aa694a4304c4d89e8aa7aafeb3c08
+model_size_bytes: 11734220
+model_uuid: m-421aa694a4304c4d89e8aa7aafeb3c08
+prompts: null
+run_id: d71efb350e6b4a748a107df11b78f0a3
+utc_time_created: '2026-11-17 09:47:31.316433'
